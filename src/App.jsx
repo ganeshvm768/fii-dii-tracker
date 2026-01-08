@@ -138,23 +138,23 @@ const FIIDIITracker = () => {
             {
               name: 'FII',
               instruments: [
-                { type: 'Future', change: -8384 },
-                { type: 'CE', change: -14952 },
-                { type: 'PE', change: 4664 }
+                { type: 'Future', change: 0 },
+                { type: 'CE', change: 0 },
+                { type: 'PE', change: 0 }
               ]
             },
             {
               name: 'PRO',
               instruments: [
-                { type: 'Future', change: 4380 },
-                { type: 'CE', change: -37748 },
-                { type: 'PE', change: 67757 }
+                { type: 'Future', change: 0 },
+                { type: 'CE', change: 0 },
+                { type: 'PE', change: 0 }
               ]
             },
             {
               name: 'DII',
               instruments: [
-                { type: 'Future', change: 366 },
+                { type: 'Future', change: 0 },
                 { type: 'CE', change: 0 },
                 { type: 'PE', change: 0 }
               ]
@@ -162,9 +162,9 @@ const FIIDIITracker = () => {
             {
               name: 'RETAIL',
               instruments: [
-                { type: 'Future', change: 3638 },
-                { type: 'CE', change: 52701 },
-                { type: 'PE', change: -72421 }
+                { type: 'Future', change: 0 },
+                { type: 'CE', change: 0 },
+                { type: 'PE', change: 0 }
               ]
             }
           ]
