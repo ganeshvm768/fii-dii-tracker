@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, Calendar, AlertCircle, Edit, Upload, Download } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Calendar, AlertCircle, Edit, Upload, Download, Menu, X } from 'lucide-react';
 
 const FIIDIITracker = () => {
   const [data, setData] = useState(null);
@@ -8,16 +8,16 @@ const FIIDIITracker = () => {
   const [error, setError] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Weightage configuration
   const WEIGHTAGE = {
-    FII: 3.0,      // Highest weightage
-    PRO: 2.0,      // Second highest
-    RETAIL: 1.0,   // Normal weightage (Client)
-    DII: 0.3       // Very low weightage
+    FII: 3.0,
+    PRO: 2.0,
+    RETAIL: 1.0,
+    DII: 0.3
   };
 
-  // Calculate activity based on change value
   const calculateActivity = (instrument, change) => {
     if (change === 0) {
       if (instrument === 'Future') return 'No Change';
@@ -35,22 +35,18 @@ const FIIDIITracker = () => {
     return 'Unknown';
   };
 
-  // Calculate trend based on instrument type and change
   const calculateTrend = (instrument, change, activity) => {
     if (change === 0) return 'Neutral';
     
-    // Bearish indicators
     if (activity === 'Sold Futures' || activity === 'Sold Calls' || activity === 'Bought Puts') {
       return 'Bearish';
     }
-    // Bullish indicators
     if (activity === 'Bought Futures' || activity === 'Bought Calls' || activity === 'Sold Puts') {
       return 'Bullish';
     }
     return 'Neutral';
   };
 
-  // Calculate overall market trend with weightages
   const calculateOverallTrend = (categories) => {
     let bearishScore = 0;
     let bullishScore = 0;
@@ -61,12 +57,10 @@ const FIIDIITracker = () => {
       cat.instruments.forEach(inst => {
         const absChange = Math.abs(inst.change);
         
-        // Skip DII if it's neutral (as per requirement)
         if (cat.name === 'DII' && inst.trend === 'Neutral') {
           return;
         }
         
-        // Apply weightage to the change value
         const weightedChange = absChange * weightage;
         
         if (inst.trend === 'Bearish') {
@@ -77,14 +71,12 @@ const FIIDIITracker = () => {
       });
     });
 
-    // Calculate total and percentages
     const total = bearishScore + bullishScore;
     if (total === 0) return 'NEUTRAL';
     
     const bearishPercent = (bearishScore / total) * 100;
     const bullishPercent = (bullishScore / total) * 100;
     
-    // If difference is less than 5%, consider it neutral
     if (Math.abs(bearishPercent - bullishPercent) < 5) {
       return 'NEUTRAL';
     }
@@ -92,7 +84,6 @@ const FIIDIITracker = () => {
     return bearishScore > bullishScore ? 'BEARISH' : 'BULLISH';
   };
 
-  // Process raw data and calculate trends
   const processData = (rawData) => {
     const processedCategories = rawData.categories.map(category => ({
       name: category.name,
@@ -116,13 +107,11 @@ const FIIDIITracker = () => {
     };
   };
 
-  // Fetch data from JSON file or localStorage
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Try to fetch from data.json file
       try {
         const response = await fetch('/data.json');
         if (response.ok) {
@@ -136,7 +125,6 @@ const FIIDIITracker = () => {
         console.log('No data.json found, using localStorage or default');
       }
 
-      // Fallback to localStorage
       const stored = localStorage.getItem('fii-dii-data');
       if (stored) {
         const rawData = JSON.parse(stored);
@@ -144,7 +132,6 @@ const FIIDIITracker = () => {
         setData(processed);
         setLastUpdated(new Date().toLocaleString());
       } else {
-        // Default sample data
         const defaultData = {
           date: new Date().toLocaleDateString('en-GB'),
           categories: [
@@ -186,8 +173,6 @@ const FIIDIITracker = () => {
         const processed = processData(defaultData);
         setData(processed);
         setLastUpdated(new Date().toLocaleString());
-        
-        // Save to localStorage
         localStorage.setItem('fii-dii-data', JSON.stringify(defaultData));
       }
     } catch (err) {
@@ -218,11 +203,9 @@ const FIIDIITracker = () => {
     return change > 0 ? `+${change.toLocaleString()}` : change.toLocaleString();
   };
 
-  // Edit mode functions
   const startEdit = () => {
     if (!data) return;
     
-    // Create raw data structure for editing
     const rawData = {
       date: data.date,
       categories: data.categories.map(cat => ({
@@ -236,6 +219,7 @@ const FIIDIITracker = () => {
     
     setEditData(rawData);
     setEditMode(true);
+    setMobileMenuOpen(false);
   };
 
   const handleEditChange = (categoryIndex, instrumentIndex, value) => {
@@ -245,10 +229,7 @@ const FIIDIITracker = () => {
   };
 
   const saveEdit = () => {
-    // Save to localStorage
     localStorage.setItem('fii-dii-data', JSON.stringify(editData));
-    
-    // Process and update display
     const processed = processData(editData);
     setData(processed);
     setLastUpdated(new Date().toLocaleString());
@@ -281,9 +262,9 @@ const FIIDIITracker = () => {
     a.href = url;
     a.download = `fii-dii-data-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
+    setMobileMenuOpen(false);
   };
 
-  // Upload JSON file
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -293,22 +274,17 @@ const FIIDIITracker = () => {
       try {
         const rawData = JSON.parse(e.target.result);
         
-        // Validate JSON structure
         if (!rawData.date || !rawData.categories) {
           setError('Invalid JSON format. Please check your file.');
           return;
         }
 
-        // Save to localStorage
         localStorage.setItem('fii-dii-data', JSON.stringify(rawData));
-        
-        // Process and display
         const processed = processData(rawData);
         setData(processed);
         setLastUpdated(new Date().toLocaleString());
         setError(null);
         
-        // Clear error if any
         setTimeout(() => {
           alert('✅ Data uploaded successfully!');
         }, 100);
@@ -319,8 +295,8 @@ const FIIDIITracker = () => {
     };
     
     reader.readAsText(file);
-    // Reset file input
     event.target.value = '';
+    setMobileMenuOpen(false);
   };
 
   const triggerFileUpload = () => {
@@ -340,14 +316,28 @@ const FIIDIITracker = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      <div className="flex-grow p-4 md:p-8">
+      <div className="flex-grow p-3 md:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-              <h1 className="text-3xl md:text-4xl font-bold">
-                {data?.date} - FII DII FNO ACTIVITY
-              </h1>
-              <div className="flex flex-wrap gap-2">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex justify-between items-start gap-4 mb-3">
+              <div>
+                <h1 className="text-xl md:text-4xl font-bold mb-1">
+                  {data?.date}
+                </h1>
+                <p className="text-sm md:text-lg text-gray-400">FII DII FNO ACTIVITY</p>
+              </div>
+              
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+
+              {/* Desktop Buttons */}
+              <div className="hidden md:flex gap-2">
                 <input
                   type="file"
                   id="json-upload"
@@ -358,15 +348,13 @@ const FIIDIITracker = () => {
                 <button
                   onClick={triggerFileUpload}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-3 rounded-lg transition-colors"
-                  title="Upload JSON file to update data"
                 >
                   <Upload className="w-5 h-5" />
-                  Upload JSON
+                  Upload
                 </button>
                 <button
                   onClick={downloadJSON}
                   className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg transition-colors"
-                  title="Download current data as JSON"
                 >
                   <Download className="w-5 h-5" />
                   Download
@@ -376,7 +364,7 @@ const FIIDIITracker = () => {
                   className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-4 py-3 rounded-lg transition-colors"
                 >
                   <Edit className="w-5 h-5" />
-                  Edit Data
+                  Edit
                 </button>
                 <button
                   onClick={fetchData}
@@ -388,27 +376,69 @@ const FIIDIITracker = () => {
                 </button>
               </div>
             </div>
+
+            {/* Mobile Menu Dropdown */}
+            {mobileMenuOpen && (
+              <div className="md:hidden bg-gray-800 rounded-lg p-3 mb-3 space-y-2 border border-gray-700">
+                <input
+                  type="file"
+                  id="json-upload"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={triggerFileUpload}
+                  className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-3 rounded-lg transition-colors justify-center"
+                >
+                  <Upload className="w-5 h-5" />
+                  Upload JSON
+                </button>
+                <button
+                  onClick={downloadJSON}
+                  className="w-full flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg transition-colors justify-center"
+                >
+                  <Download className="w-5 h-5" />
+                  Download JSON
+                </button>
+                <button
+                  onClick={startEdit}
+                  className="w-full flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-4 py-3 rounded-lg transition-colors justify-center"
+                >
+                  <Edit className="w-5 h-5" />
+                  Edit Data
+                </button>
+                <button
+                  onClick={fetchData}
+                  disabled={loading}
+                  className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-4 py-3 rounded-lg transition-colors justify-center"
+                >
+                  <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh Data
+                </button>
+              </div>
+            )}
             
             {lastUpdated && (
-              <div className="flex items-center gap-2 text-gray-400 text-sm">
-                <Calendar className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-gray-400 text-xs md:text-sm">
+                <Calendar className="w-3 h-3 md:w-4 md:h-4" />
                 Last Updated: {lastUpdated}
               </div>
             )}
 
             {error && (
-              <div className="mt-4 bg-red-900/50 border border-red-600 rounded-lg p-4 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400" />
-                <span className="text-red-200">{error}</span>
+              <div className="mt-3 bg-red-900/50 border border-red-600 rounded-lg p-3 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                <span className="text-red-200 text-sm">{error}</span>
               </div>
             )}
           </div>
 
           {/* Edit Mode */}
           {editMode && editData && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
-              <div className="bg-gray-800 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-4">Edit Daily Data</h2>
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-3 overflow-y-auto">
+              <div className="bg-gray-800 rounded-lg p-4 md:p-6 max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+                <h2 className="text-xl md:text-2xl font-bold mb-4">Edit Daily Data</h2>
                 
                 <div className="mb-4">
                   <label className="block text-sm font-semibold mb-2">Date (DD/MM/YYYY)</label>
@@ -416,29 +446,29 @@ const FIIDIITracker = () => {
                     type="text"
                     value={editData.date}
                     onChange={(e) => setEditData({ ...editData, date: e.target.value })}
-                    className="w-full bg-gray-700 px-4 py-2 rounded"
+                    className="w-full bg-gray-700 px-3 py-2 rounded text-sm md:text-base"
                     placeholder="08/01/2026"
                   />
                 </div>
 
                 {editData.categories.map((category, catIndex) => (
-                  <div key={category.name} className="mb-6 border border-gray-700 rounded-lg p-4">
-                    <h3 className="text-xl font-bold mb-3">
+                  <div key={category.name} className="mb-4 border border-gray-700 rounded-lg p-3">
+                    <h3 className="text-lg md:text-xl font-bold mb-3">
                       {category.name}
-                      <span className="text-sm font-normal text-gray-400 ml-2">
-                        (Weightage: {WEIGHTAGE[category.name]}x)
+                      <span className="text-xs md:text-sm font-normal text-gray-400 ml-2">
+                        ({WEIGHTAGE[category.name]}x)
                       </span>
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {category.instruments.map((instrument, instIndex) => (
-                        <div key={instrument.type} className="flex items-center gap-4">
-                          <label className="w-24 font-semibold">{instrument.type}:</label>
+                        <div key={instrument.type} className="flex items-center gap-2">
+                          <label className="w-16 md:w-24 font-semibold text-sm md:text-base">{instrument.type}:</label>
                           <input
                             type="number"
                             value={instrument.change}
                             onChange={(e) => handleEditChange(catIndex, instIndex, e.target.value)}
-                            className="flex-1 bg-gray-700 px-4 py-2 rounded"
-                            placeholder="Enter change value (use - for negative)"
+                            className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm md:text-base"
+                            placeholder="-1000"
                           />
                         </div>
                       ))}
@@ -446,16 +476,16 @@ const FIIDIITracker = () => {
                   </div>
                 ))}
 
-                <div className="flex gap-3 justify-end">
+                <div className="flex gap-2 justify-end">
                   <button
                     onClick={cancelEdit}
-                    className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-sm md:text-base"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={saveEdit}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg"
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm md:text-base"
                   >
                     Save Changes
                   </button>
@@ -464,117 +494,166 @@ const FIIDIITracker = () => {
             </div>
           )}
 
-          {/* Data Table */}
+          {/* Mobile Card View */}
           {data && !editMode && (
-            <div className="overflow-x-auto rounded-lg border border-gray-700">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-800 border-b border-gray-700">
-                    <th className="px-6 py-4 text-left font-semibold"></th>
-                    <th className="px-6 py-4 text-left font-semibold">Instrument</th>
-                    <th className="px-6 py-4 text-right font-semibold">Change</th>
-                    <th className="px-6 py-4 text-left font-semibold">Activity</th>
-                    <th className="px-6 py-4 text-center font-semibold">Trend</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.categories.map((category) => (
-                    <React.Fragment key={category.name}>
-                      {category.instruments.map((instrument, instIndex) => (
-                        <tr
-                          key={`${category.name}-${instrument.type}`}
-                          className="border-b border-gray-700 hover:bg-gray-800/50 transition-colors"
-                        >
-                          {instIndex === 0 && (
-                            <td
-                              rowSpan={category.instruments.length}
-                              className="px-6 py-4 font-bold text-xl bg-gray-800/30"
-                            >
-                              {category.name}
-                            </td>
-                          )}
-                          <td className="px-6 py-4 font-semibold">{instrument.type}</td>
-                          <td className={`px-6 py-4 text-right font-mono font-bold ${
-                            instrument.change > 0 ? 'text-green-400' : instrument.change < 0 ? 'text-red-400' : 'text-gray-400'
-                          }`}>
-                            {formatChange(instrument.change)}
-                          </td>
-                          <td className={`px-6 py-4 ${
-                            instrument.activity.includes('Bought') ? 'text-green-300' : 
-                            instrument.activity.includes('Sold') ? 'text-red-300' : 'text-gray-400'
-                          }`}>
-                            {instrument.activity}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className={`${getTrendColor(instrument.trend)} px-4 py-2 rounded-lg font-bold text-center flex items-center justify-center gap-2`}>
+            <>
+              <div className="md:hidden space-y-4">
+                {data.categories.map((category) => (
+                  <div key={category.name} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <div className="bg-gray-700 px-4 py-3 font-bold text-lg">
+                      {category.name}
+                    </div>
+                    <div className="p-3 space-y-3">
+                      {category.instruments.map((instrument) => (
+                        <div key={instrument.type} className="bg-gray-700/50 rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-bold text-lg">{instrument.type}</span>
+                            <div className={`${getTrendColor(instrument.trend)} px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1`}>
                               {getTrendIcon(instrument.trend)}
                               {instrument.trend}
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Change:</span>
+                              <span className={`font-mono font-bold ${
+                                instrument.change > 0 ? 'text-green-400' : instrument.change < 0 ? 'text-red-400' : 'text-gray-400'
+                              }`}>
+                                {formatChange(instrument.change)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Activity:</span>
+                              <span className={`font-semibold ${
+                                instrument.activity.includes('Bought') ? 'text-green-300' : 
+                                instrument.activity.includes('Sold') ? 'text-red-300' : 'text-gray-400'
+                              }`}>
+                                {instrument.activity}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </React.Fragment>
-                  ))}
-                  
-                  <tr className="bg-black border-t-2 border-gray-600">
-                    <td colSpan="4" className="px-6 py-4 text-center font-bold text-xl">
-                      OVERALL TREND:
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className={`${getTrendColor(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')} px-4 py-3 rounded-lg font-bold text-xl text-center flex items-center justify-center gap-2`}>
-                        {getTrendIcon(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')}
-                        {data.overallTrend}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Mobile Overall Trend */}
+                <div className="bg-black rounded-lg border-2 border-gray-600 p-4">
+                  <div className="text-center mb-3">
+                    <h3 className="text-lg font-bold">OVERALL TREND</h3>
+                  </div>
+                  <div className={`${getTrendColor(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')} px-6 py-4 rounded-lg font-bold text-2xl text-center flex items-center justify-center gap-3`}>
+                    {getTrendIcon(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')}
+                    {data.overallTrend}
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-700">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-800 border-b border-gray-700">
+                      <th className="px-6 py-4 text-left font-semibold"></th>
+                      <th className="px-6 py-4 text-left font-semibold">Instrument</th>
+                      <th className="px-6 py-4 text-right font-semibold">Change</th>
+                      <th className="px-6 py-4 text-left font-semibold">Activity</th>
+                      <th className="px-6 py-4 text-center font-semibold">Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.categories.map((category) => (
+                      <React.Fragment key={category.name}>
+                        {category.instruments.map((instrument, instIndex) => (
+                          <tr
+                            key={`${category.name}-${instrument.type}`}
+                            className="border-b border-gray-700 hover:bg-gray-800/50 transition-colors"
+                          >
+                            {instIndex === 0 && (
+                              <td
+                                rowSpan={category.instruments.length}
+                                className="px-6 py-4 font-bold text-xl bg-gray-800/30"
+                              >
+                                {category.name}
+                              </td>
+                            )}
+                            <td className="px-6 py-4 font-semibold">{instrument.type}</td>
+                            <td className={`px-6 py-4 text-right font-mono font-bold ${
+                              instrument.change > 0 ? 'text-green-400' : instrument.change < 0 ? 'text-red-400' : 'text-gray-400'
+                            }`}>
+                              {formatChange(instrument.change)}
+                            </td>
+                            <td className={`px-6 py-4 ${
+                              instrument.activity.includes('Bought') ? 'text-green-300' : 
+                              instrument.activity.includes('Sold') ? 'text-red-300' : 'text-gray-400'
+                            }`}>
+                              {instrument.activity}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className={`${getTrendColor(instrument.trend)} px-4 py-2 rounded-lg font-bold text-center flex items-center justify-center gap-2`}>
+                                {getTrendIcon(instrument.trend)}
+                                {instrument.trend}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    
+                    <tr className="bg-black border-t-2 border-gray-600">
+                      <td colSpan="4" className="px-6 py-4 text-center font-bold text-xl">
+                        OVERALL TREND:
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className={`${getTrendColor(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')} px-4 py-3 rounded-lg font-bold text-xl text-center flex items-center justify-center gap-2`}>
+                          {getTrendIcon(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')}
+                          {data.overallTrend}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
-          <div className="mt-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-lg font-semibold mb-3">Weightage Logic:</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-gray-700 p-3 rounded">
-                <div className="text-2xl font-bold text-blue-400">3.0x</div>
-                <div className="text-sm text-gray-300">FII (Highest Impact)</div>
+          {/* Info Section */}
+          <div className="mt-6 bg-gray-800 rounded-lg p-4 md:p-6 border border-gray-700">
+            <h3 className="text-base md:text-lg font-semibold mb-3">Weightage Logic:</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
+              <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
+                <div className="text-xl md:text-2xl font-bold text-blue-400">3.0x</div>
+                <div className="text-xs md:text-sm text-gray-300">FII</div>
               </div>
-              <div className="bg-gray-700 p-3 rounded">
-                <div className="text-2xl font-bold text-purple-400">2.0x</div>
-                <div className="text-sm text-gray-300">PRO</div>
+              <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
+                <div className="text-xl md:text-2xl font-bold text-purple-400">2.0x</div>
+                <div className="text-xs md:text-sm text-gray-300">PRO</div>
               </div>
-              <div className="bg-gray-700 p-3 rounded">
-                <div className="text-2xl font-bold text-green-400">1.0x</div>
-                <div className="text-sm text-gray-300">RETAIL (Client)</div>
+              <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
+                <div className="text-xl md:text-2xl font-bold text-green-400">1.0x</div>
+                <div className="text-xs md:text-sm text-gray-300">RETAIL</div>
               </div>
-              <div className="bg-gray-700 p-3 rounded">
-                <div className="text-2xl font-bold text-gray-400">0.3x</div>
-                <div className="text-sm text-gray-300">DII (Low Impact)</div>
+              <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
+                <div className="text-xl md:text-2xl font-bold text-gray-400">0.3x</div>
+                <div className="text-xs md:text-sm text-gray-300">DII</div>
               </div>
             </div>
             
-            <h3 className="text-lg font-semibold mb-3 mt-6">How to Update Data Daily:</h3>
-            <ol className="space-y-2 text-gray-300 list-decimal list-inside">
-              <li><strong className="text-green-400">Upload JSON:</strong> Click "Upload JSON" button and select your JSON file</li>
-              <li><strong className="text-purple-400">Edit Manually:</strong> Click "Edit Data" to input values directly</li>
-              <li><strong className="text-yellow-400">Download:</strong> Save current data as JSON for backup</li>
-              <li>Trends are automatically calculated based on:
-                <ul className="ml-8 mt-2 space-y-1 list-disc list-inside text-sm">
-                  <li><strong>Bearish:</strong> Sold Futures, Sold Calls, Bought Puts</li>
-                  <li><strong>Bullish:</strong> Bought Futures, Bought Calls, Sold Puts</li>
-                  <li><strong>DII Neutral</strong> positions excluded from overall trend</li>
-                  <li><strong>Overall Trend:</strong> FII (3x), PRO (2x), Retail (1x), DII (0.3x)</li>
-                </ul>
-              </li>
+            <h3 className="text-base md:text-lg font-semibold mb-2 mt-4">How to Update:</h3>
+            <ol className="space-y-1 text-gray-300 list-decimal list-inside text-sm md:text-base">
+              <li><strong className="text-green-400">Upload JSON:</strong> Click menu → Upload JSON</li>
+              <li><strong className="text-purple-400">Edit Manually:</strong> Click menu → Edit Data</li>
+              <li><strong className="text-yellow-400">Download:</strong> Save current data as backup</li>
             </ol>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-800 border-t border-gray-700 py-4 mt-8">
+      <footer className="bg-gray-800 border-t border-gray-700 py-3 md:py-4 mt-6">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-400 text-xs md:text-sm">
             Made with <span className="text-red-500 animate-pulse">❤️</span> by <span className="font-semibold text-white">Ganesh V M</span>
           </p>
         </div>
