@@ -1,61 +1,179 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, Calendar, AlertCircle } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Calendar, AlertCircle, Edit } from 'lucide-react';
 
 const FIIDIITracker = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState(null);
 
-  const getSampleData = () => ({
-    date: new Date().toLocaleDateString('en-GB'),
-    categories: [
-      {
-        name: 'FII',
-        instruments: [
-          { type: 'Future', change: -8384, activity: 'Sold Futures', trend: 'Bearish' },
-          { type: 'CE', change: -14952, activity: 'Sold Calls', trend: 'Bearish' },
-          { type: 'PE', change: 4664, activity: 'Bought Puts', trend: 'Bearish' }
-        ]
-      },
-      {
-        name: 'PRO',
-        instruments: [
-          { type: 'Future', change: 4380, activity: 'Bought Futures', trend: 'Bullish' },
-          { type: 'CE', change: -37748, activity: 'Sold Calls', trend: 'Bearish' },
-          { type: 'PE', change: 67757, activity: 'Bought Puts', trend: 'Bearish' }
-        ]
-      },
-      {
-        name: 'DII',
-        instruments: [
-          { type: 'Future', change: 366, activity: 'Bought Futures', trend: 'Bullish' },
-          { type: 'CE', change: 0, activity: 'Sold Calls', trend: 'Bearish' },
-          { type: 'PE', change: 0, activity: 'Sold Puts', trend: 'Bullish' }
-        ]
-      },
-      {
-        name: 'RETAIL',
-        instruments: [
-          { type: 'Future', change: 3638, activity: 'Bought Futures', trend: 'Bullish' },
-          { type: 'CE', change: 52701, activity: 'Bought Calls', trend: 'Bullish' },
-          { type: 'PE', change: -72421, activity: 'Sold Puts', trend: 'Bullish' }
-        ]
-      }
-    ],
-    overallTrend: 'BEARISH'
-  });
+  // Calculate activity based on change value
+  const calculateActivity = (instrument, change) => {
+    if (change === 0) {
+      if (instrument === 'Future') return 'No Change';
+      if (instrument === 'CE') return 'No Change';
+      if (instrument === 'PE') return 'No Change';
+    }
+    
+    if (instrument === 'Future') {
+      return change > 0 ? 'Bought Futures' : 'Sold Futures';
+    } else if (instrument === 'CE') {
+      return change > 0 ? 'Bought Calls' : 'Sold Calls';
+    } else if (instrument === 'PE') {
+      return change > 0 ? 'Bought Puts' : 'Sold Puts';
+    }
+    return 'Unknown';
+  };
 
+  // Calculate trend based on instrument type and change
+  const calculateTrend = (instrument, change, activity) => {
+    if (change === 0) return 'Neutral';
+    
+    // Bearish indicators
+    if (activity === 'Sold Futures' || activity === 'Sold Calls' || activity === 'Bought Puts') {
+      return 'Bearish';
+    }
+    // Bullish indicators
+    if (activity === 'Bought Futures' || activity === 'Bought Calls' || activity === 'Sold Puts') {
+      return 'Bullish';
+    }
+    return 'Neutral';
+  };
+
+  // Calculate overall market trend
+  const calculateOverallTrend = (categories) => {
+    let bearishScore = 0;
+    let bullishScore = 0;
+    let neutralCount = 0;
+
+    categories.forEach(cat => {
+      cat.instruments.forEach(inst => {
+        const absChange = Math.abs(inst.change);
+        
+        if (inst.trend === 'Bearish') {
+          bearishScore += absChange;
+        } else if (inst.trend === 'Bullish') {
+          bullishScore += absChange;
+        } else {
+          neutralCount++;
+        }
+      });
+    });
+
+    // If difference is less than 10%, consider it neutral
+    const total = bearishScore + bullishScore;
+    if (total === 0) return 'NEUTRAL';
+    
+    const bearishPercent = (bearishScore / total) * 100;
+    const bullishPercent = (bullishScore / total) * 100;
+    
+    if (Math.abs(bearishPercent - bullishPercent) < 10) {
+      return 'NEUTRAL';
+    }
+    
+    return bearishScore > bullishScore ? 'BEARISH' : 'BULLISH';
+  };
+
+  // Process raw data and calculate trends
+  const processData = (rawData) => {
+    const processedCategories = rawData.categories.map(category => ({
+      name: category.name,
+      instruments: category.instruments.map(inst => {
+        const activity = calculateActivity(inst.type, inst.change);
+        const trend = calculateTrend(inst.type, inst.change, activity);
+        return {
+          ...inst,
+          activity,
+          trend
+        };
+      })
+    }));
+
+    const overallTrend = calculateOverallTrend(processedCategories);
+
+    return {
+      date: rawData.date,
+      categories: processedCategories,
+      overallTrend
+    };
+  };
+
+  // Fetch data from JSON file or localStorage
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const newData = getSampleData();
-      
-      setData(newData);
-      setLastUpdated(new Date().toLocaleString());
+      // Try to fetch from data.json file
+      try {
+        const response = await fetch('/data.json');
+        if (response.ok) {
+          const rawData = await response.json();
+          const processed = processData(rawData);
+          setData(processed);
+          setLastUpdated(new Date().toLocaleString());
+          return;
+        }
+      } catch (e) {
+        console.log('No data.json found, using localStorage or default');
+      }
+
+      // Fallback to localStorage
+      const stored = localStorage.getItem('fii-dii-data');
+      if (stored) {
+        const rawData = JSON.parse(stored);
+        const processed = processData(rawData);
+        setData(processed);
+        setLastUpdated(new Date().toLocaleString());
+      } else {
+        // Default sample data
+        const defaultData = {
+          date: new Date().toLocaleDateString('en-GB'),
+          categories: [
+            {
+              name: 'FII',
+              instruments: [
+                { type: 'Future', change: -8384 },
+                { type: 'CE', change: -14952 },
+                { type: 'PE', change: 4664 }
+              ]
+            },
+            {
+              name: 'PRO',
+              instruments: [
+                { type: 'Future', change: 4380 },
+                { type: 'CE', change: -37748 },
+                { type: 'PE', change: 67757 }
+              ]
+            },
+            {
+              name: 'DII',
+              instruments: [
+                { type: 'Future', change: 366 },
+                { type: 'CE', change: 0 },
+                { type: 'PE', change: 0 }
+              ]
+            },
+            {
+              name: 'RETAIL',
+              instruments: [
+                { type: 'Future', change: 3638 },
+                { type: 'CE', change: 52701 },
+                { type: 'PE', change: -72421 }
+              ]
+            }
+          ]
+        };
+        
+        const processed = processData(defaultData);
+        setData(processed);
+        setLastUpdated(new Date().toLocaleString());
+        
+        // Save to localStorage
+        localStorage.setItem('fii-dii-data', JSON.stringify(defaultData));
+      }
     } catch (err) {
       setError('Failed to fetch data. Please try again.');
       console.error('Error fetching data:', err);
@@ -66,20 +184,87 @@ const FIIDIITracker = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 3600000);
-    return () => clearInterval(interval);
   }, []);
 
   const getTrendColor = (trend) => {
-    return trend === 'Bearish' ? 'bg-red-600' : 'bg-green-600';
+    if (trend === 'Bearish') return 'bg-red-600';
+    if (trend === 'Bullish') return 'bg-green-600';
+    return 'bg-gray-600';
   };
 
   const getTrendIcon = (trend) => {
-    return trend === 'Bearish' ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />;
+    if (trend === 'Bearish') return <TrendingDown className="w-4 h-4" />;
+    if (trend === 'Bullish') return <TrendingUp className="w-4 h-4" />;
+    return <span className="w-4 h-4">━</span>;
   };
 
   const formatChange = (change) => {
     return change > 0 ? `+${change.toLocaleString()}` : change.toLocaleString();
+  };
+
+  // Edit mode functions
+  const startEdit = () => {
+    if (!data) return;
+    
+    // Create raw data structure for editing
+    const rawData = {
+      date: data.date,
+      categories: data.categories.map(cat => ({
+        name: cat.name,
+        instruments: cat.instruments.map(inst => ({
+          type: inst.type,
+          change: inst.change
+        }))
+      }))
+    };
+    
+    setEditData(rawData);
+    setEditMode(true);
+  };
+
+  const handleEditChange = (categoryIndex, instrumentIndex, value) => {
+    const newEditData = { ...editData };
+    newEditData.categories[categoryIndex].instruments[instrumentIndex].change = parseInt(value) || 0;
+    setEditData(newEditData);
+  };
+
+  const saveEdit = () => {
+    // Save to localStorage
+    localStorage.setItem('fii-dii-data', JSON.stringify(editData));
+    
+    // Process and update display
+    const processed = processData(editData);
+    setData(processed);
+    setLastUpdated(new Date().toLocaleString());
+    setEditMode(false);
+    setEditData(null);
+  };
+
+  const cancelEdit = () => {
+    setEditMode(false);
+    setEditData(null);
+  };
+
+  const downloadJSON = () => {
+    if (!data) return;
+    
+    const rawData = {
+      date: data.date,
+      categories: data.categories.map(cat => ({
+        name: cat.name,
+        instruments: cat.instruments.map(inst => ({
+          type: inst.type,
+          change: inst.change
+        }))
+      }))
+    };
+    
+    const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fii-dii-data-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
   };
 
   if (loading && !data) {
@@ -101,14 +286,23 @@ const FIIDIITracker = () => {
             <h1 className="text-3xl md:text-4xl font-bold">
               {data?.date} - FII DII FNO ACTIVITY
             </h1>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-6 py-3 rounded-lg transition-colors"
-            >
-              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh Data
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={startEdit}
+                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-4 py-3 rounded-lg transition-colors"
+              >
+                <Edit className="w-5 h-5" />
+                Edit Data
+              </button>
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-4 py-3 rounded-lg transition-colors"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
           
           {lastUpdated && (
@@ -126,7 +320,62 @@ const FIIDIITracker = () => {
           )}
         </div>
 
-        {data && (
+        {/* Edit Mode */}
+        {editMode && editData && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-gray-800 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold mb-4">Edit Daily Data</h2>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-2">Date</label>
+                <input
+                  type="text"
+                  value={editData.date}
+                  onChange={(e) => setEditData({ ...editData, date: e.target.value })}
+                  className="w-full bg-gray-700 px-4 py-2 rounded"
+                />
+              </div>
+
+              {editData.categories.map((category, catIndex) => (
+                <div key={category.name} className="mb-6 border border-gray-700 rounded-lg p-4">
+                  <h3 className="text-xl font-bold mb-3">{category.name}</h3>
+                  <div className="space-y-3">
+                    {category.instruments.map((instrument, instIndex) => (
+                      <div key={instrument.type} className="flex items-center gap-4">
+                        <label className="w-24 font-semibold">{instrument.type}:</label>
+                        <input
+                          type="number"
+                          value={instrument.change}
+                          onChange={(e) => handleEditChange(catIndex, instIndex, e.target.value)}
+                          className="flex-1 bg-gray-700 px-4 py-2 rounded"
+                          placeholder="Enter change value"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={cancelEdit}
+                  className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveEdit}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data Table */}
+        {data && !editMode && (
           <div className="overflow-x-auto rounded-lg border border-gray-700">
             <table className="w-full">
               <thead>
@@ -156,12 +405,13 @@ const FIIDIITracker = () => {
                         )}
                         <td className="px-6 py-4 font-semibold">{instrument.type}</td>
                         <td className={`px-6 py-4 text-right font-mono font-bold ${
-                          instrument.change > 0 ? 'text-green-400' : 'text-red-400'
+                          instrument.change > 0 ? 'text-green-400' : instrument.change < 0 ? 'text-red-400' : 'text-gray-400'
                         }`}>
                           {formatChange(instrument.change)}
                         </td>
                         <td className={`px-6 py-4 ${
-                          instrument.activity.includes('Bought') ? 'text-green-300' : 'text-red-300'
+                          instrument.activity.includes('Bought') ? 'text-green-300' : 
+                          instrument.activity.includes('Sold') ? 'text-red-300' : 'text-gray-400'
                         }`}>
                           {instrument.activity}
                         </td>
@@ -181,8 +431,8 @@ const FIIDIITracker = () => {
                     OVERALL TREND:
                   </td>
                   <td className="px-6 py-4">
-                    <div className={`${getTrendColor(data.overallTrend === 'BEARISH' ? 'Bearish' : 'Bullish')} px-4 py-3 rounded-lg font-bold text-xl text-center flex items-center justify-center gap-2`}>
-                      {getTrendIcon(data.overallTrend === 'BEARISH' ? 'Bearish' : 'Bullish')}
+                    <div className={`${getTrendColor(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')} px-4 py-3 rounded-lg font-bold text-xl text-center flex items-center justify-center gap-2`}>
+                      {getTrendIcon(data.overallTrend === 'BEARISH' ? 'Bearish' : data.overallTrend === 'BULLISH' ? 'Bullish' : 'Neutral')}
                       {data.overallTrend}
                     </div>
                   </td>
@@ -193,12 +443,28 @@ const FIIDIITracker = () => {
         )}
 
         <div className="mt-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold mb-3">Data Sources:</h3>
-          <ul className="space-y-2 text-gray-300">
-            <li>• NSE India - Official FII/DII Data</li>
-            <li>• Sensibull - FNO Activity Data</li>
-            <li>• Updates automatically after market hours (typically 3:30 PM IST)</li>
-          </ul>
+          <h3 className="text-lg font-semibold mb-3">How to Update Data Daily:</h3>
+          <ol className="space-y-2 text-gray-300 list-decimal list-inside">
+            <li>Click the <strong className="text-purple-400">"Edit Data"</strong> button above</li>
+            <li>Update the date and change values for each instrument</li>
+            <li>Click <strong className="text-green-400">"Save Changes"</strong></li>
+            <li>The trends will be automatically calculated based on the logic:
+              <ul className="ml-8 mt-2 space-y-1 list-disc list-inside text-sm">
+                <li><strong>Bearish:</strong> Sold Futures, Sold Calls, Bought Puts</li>
+                <li><strong>Bullish:</strong> Bought Futures, Bought Calls, Sold Puts</li>
+                <li><strong>Overall Trend:</strong> Calculated by weighted sum of all positions</li>
+              </ul>
+            </li>
+          </ol>
+          
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <button
+              onClick={downloadJSON}
+              className="text-blue-400 hover:text-blue-300 underline text-sm"
+            >
+              Download current data as JSON
+            </button>
+          </div>
         </div>
       </div>
     </div>
