@@ -9,6 +9,14 @@ const FIIDIITracker = () => {
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState(null);
 
+  // Weightage configuration
+  const WEIGHTAGE = {
+    FII: 3.0,      // Highest weightage
+    PRO: 2.0,      // Second highest
+    RETAIL: 1.0,   // Normal weightage (Client)
+    DII: 0.3       // Very low weightage
+  };
+
   // Calculate activity based on change value
   const calculateActivity = (instrument, change) => {
     if (change === 0) {
@@ -42,34 +50,42 @@ const FIIDIITracker = () => {
     return 'Neutral';
   };
 
-  // Calculate overall market trend
+  // Calculate overall market trend with weightages
   const calculateOverallTrend = (categories) => {
     let bearishScore = 0;
     let bullishScore = 0;
-    let neutralCount = 0;
 
     categories.forEach(cat => {
+      const weightage = WEIGHTAGE[cat.name] || 1.0;
+      
       cat.instruments.forEach(inst => {
         const absChange = Math.abs(inst.change);
         
+        // Skip DII if it's neutral (as per requirement)
+        if (cat.name === 'DII' && inst.trend === 'Neutral') {
+          return;
+        }
+        
+        // Apply weightage to the change value
+        const weightedChange = absChange * weightage;
+        
         if (inst.trend === 'Bearish') {
-          bearishScore += absChange;
+          bearishScore += weightedChange;
         } else if (inst.trend === 'Bullish') {
-          bullishScore += absChange;
-        } else {
-          neutralCount++;
+          bullishScore += weightedChange;
         }
       });
     });
 
-    // If difference is less than 10%, consider it neutral
+    // Calculate total and percentages
     const total = bearishScore + bullishScore;
     if (total === 0) return 'NEUTRAL';
     
     const bearishPercent = (bearishScore / total) * 100;
     const bullishPercent = (bullishScore / total) * 100;
     
-    if (Math.abs(bearishPercent - bullishPercent) < 10) {
+    // If difference is less than 5%, consider it neutral
+    if (Math.abs(bearishPercent - bullishPercent) < 5) {
       return 'NEUTRAL';
     }
     
@@ -135,23 +151,23 @@ const FIIDIITracker = () => {
             {
               name: 'FII',
               instruments: [
-                { type: 'Future', change: 0 },
-                { type: 'CE', change: 0 },
-                { type: 'PE', change: 0 }
+                { type: 'Future', change: -8384 },
+                { type: 'CE', change: -14952 },
+                { type: 'PE', change: 4664 }
               ]
             },
             {
               name: 'PRO',
               instruments: [
-                { type: 'Future', change: 0 },
-                { type: 'CE', change: 0 },
-                { type: 'PE', change: 0 }
+                { type: 'Future', change: 4380 },
+                { type: 'CE', change: -37748 },
+                { type: 'PE', change: 67757 }
               ]
             },
             {
               name: 'DII',
               instruments: [
-                { type: 'Future', change: 0 },
+                { type: 'Future', change: 366 },
                 { type: 'CE', change: 0 },
                 { type: 'PE', change: 0 }
               ]
@@ -159,9 +175,9 @@ const FIIDIITracker = () => {
             {
               name: 'RETAIL',
               instruments: [
-                { type: 'Future', change: 0 },
-                { type: 'CE', change: 0 },
-                { type: 'PE', change: 0 }
+                { type: 'Future', change: 3638 },
+                { type: 'CE', change: 52701 },
+                { type: 'PE', change: -72421 }
               ]
             }
           ]
@@ -338,7 +354,12 @@ const FIIDIITracker = () => {
 
               {editData.categories.map((category, catIndex) => (
                 <div key={category.name} className="mb-6 border border-gray-700 rounded-lg p-4">
-                  <h3 className="text-xl font-bold mb-3">{category.name}</h3>
+                  <h3 className="text-xl font-bold mb-3">
+                    {category.name}
+                    <span className="text-sm font-normal text-gray-400 ml-2">
+                      (Weightage: {WEIGHTAGE[category.name]}x)
+                    </span>
+                  </h3>
                   <div className="space-y-3">
                     {category.instruments.map((instrument, instIndex) => (
                       <div key={instrument.type} className="flex items-center gap-4">
@@ -443,16 +464,37 @@ const FIIDIITracker = () => {
         )}
 
         <div className="mt-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold mb-3">How to Update Data Daily:</h3>
+          <h3 className="text-lg font-semibold mb-3">Weightage Logic:</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-gray-700 p-3 rounded">
+              <div className="text-2xl font-bold text-blue-400">3.0x</div>
+              <div className="text-sm text-gray-300">FII (Highest Impact)</div>
+            </div>
+            <div className="bg-gray-700 p-3 rounded">
+              <div className="text-2xl font-bold text-purple-400">2.0x</div>
+              <div className="text-sm text-gray-300">PRO</div>
+            </div>
+            <div className="bg-gray-700 p-3 rounded">
+              <div className="text-2xl font-bold text-green-400">1.0x</div>
+              <div className="text-sm text-gray-300">RETAIL (Client)</div>
+            </div>
+            <div className="bg-gray-700 p-3 rounded">
+              <div className="text-2xl font-bold text-gray-400">0.3x</div>
+              <div className="text-sm text-gray-300">DII (Low Impact)</div>
+            </div>
+          </div>
+          
+          <h3 className="text-lg font-semibold mb-3 mt-6">How to Update Data Daily:</h3>
           <ol className="space-y-2 text-gray-300 list-decimal list-inside">
             <li>Click the <strong className="text-purple-400">"Edit Data"</strong> button above</li>
             <li>Update the date and change values for each instrument</li>
             <li>Click <strong className="text-green-400">"Save Changes"</strong></li>
-            <li>The trends will be automatically calculated based on the logic:
+            <li>The trends will be automatically calculated with proper weightages:
               <ul className="ml-8 mt-2 space-y-1 list-disc list-inside text-sm">
                 <li><strong>Bearish:</strong> Sold Futures, Sold Calls, Bought Puts</li>
                 <li><strong>Bullish:</strong> Bought Futures, Bought Calls, Sold Puts</li>
-                <li><strong>Overall Trend:</strong> Calculated by weighted sum of all positions</li>
+                <li><strong>DII Neutral positions</strong> are excluded from overall calculation</li>
+                <li><strong>Overall Trend:</strong> FII has 3x impact, PRO 2x, Retail 1x, DII 0.3x</li>
               </ul>
             </li>
           </ol>
