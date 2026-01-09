@@ -632,13 +632,13 @@ const FIIDIITracker = () => {
 
           {/* Info Section */}
           <div className="mt-6 bg-gray-800 rounded-lg p-4 md:p-6 border border-gray-700">
-            <h3 className="text-base md:text-lg font-semibold mb-3">Weightage Logic:</h3>
+            <h3 className="text-base md:text-lg font-semibold mb-3">Logic:</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
               <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
-                <div className="text-xl md:text-2xl font-bold text-blue-400">3.0x</div>
-                <div className="text-xs md:text-sm text-gray-300">FII</div>
+                <div className="text-xl md:text-2xl font-bold text-blue-400">Proprietary</div>
+               {/* <div className="text-xs md:text-sm text-gray-300">FII</div> */}
               </div>
-              <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
+             {/* <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
                 <div className="text-xl md:text-2xl font-bold text-purple-400">2.0x</div>
                 <div className="text-xs md:text-sm text-gray-300">PRO</div>
               </div>
@@ -649,17 +649,17 @@ const FIIDIITracker = () => {
               <div className="bg-gray-700 p-2 md:p-3 rounded text-center">
                 <div className="text-xl md:text-2xl font-bold text-gray-400">0.3x</div>
                 <div className="text-xs md:text-sm text-gray-300">DII</div>
-              </div>
+              </div> */}
             </div>
             
             <h3 className="text-base md:text-lg font-semibold mb-2 mt-4">How to Update:</h3>
             <ol className="space-y-1 text-gray-300 list-decimal list-inside text-sm md:text-base">
-              <li><strong className="text-green-400">Upload JSON:</strong> Include "date" field in DD/MM/YYYY format</li>
-              <li><strong className="text-purple-400">Edit Manually:</strong> Update date and values directly</li>
+              <li><strong className="text-green-400">Upload JSON:</strong> Click menu → Upload JSON</li>
+              <li><strong className="text-purple-400">Edit Manually:</strong> Click menu → Edit Data</li>
               <li><strong className="text-yellow-400">Download:</strong> Saves with date in filename</li>
             </ol>
             
-            <div className="mt-4 bg-gray-700/50 p-3 rounded text-sm">
+           {/* <div className="mt-4 bg-gray-700/50 p-3 rounded text-sm">
               <p className="text-gray-300 mb-2"><strong>JSON Format Example:</strong></p>
               <pre className="text-xs text-green-400 overflow-x-auto">
 {`{
@@ -667,7 +667,7 @@ const FIIDIITracker = () => {
   "categories": [ ... ]
 }`}
               </pre>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
