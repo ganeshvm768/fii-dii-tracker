@@ -138,23 +138,23 @@ const FIIDIITracker = () => {
             {
               name: 'FII',
               instruments: [
-                { type: 'Future', change: 0 },
-                { type: 'CE', change: 0 },
-                { type: 'PE', change: 0 }
+                { type: 'Future', change: -8384 },
+                { type: 'CE', change: -14952 },
+                { type: 'PE', change: 4664 }
               ]
             },
             {
               name: 'PRO',
               instruments: [
-                { type: 'Future', change: 0 },
-                { type: 'CE', change: 0 },
-                { type: 'PE', change: 0 }
+                { type: 'Future', change: 4380 },
+                { type: 'CE', change: -37748 },
+                { type: 'PE', change: 67757 }
               ]
             },
             {
               name: 'DII',
               instruments: [
-                { type: 'Future', change: 0 },
+                { type: 'Future', change: 366 },
                 { type: 'CE', change: 0 },
                 { type: 'PE', change: 0 }
               ]
@@ -162,9 +162,9 @@ const FIIDIITracker = () => {
             {
               name: 'RETAIL',
               instruments: [
-                { type: 'Future', change: 0 },
-                { type: 'CE', change: 0 },
-                { type: 'PE', change: 0 }
+                { type: 'Future', change: 3638 },
+                { type: 'CE', change: 52701 },
+                { type: 'PE', change: -72421 }
               ]
             }
           ]
@@ -228,6 +228,10 @@ const FIIDIITracker = () => {
     setEditData(newEditData);
   };
 
+  const handleDateChange = (newDate) => {
+    setEditData({ ...editData, date: newDate });
+  };
+
   const saveEdit = () => {
     localStorage.setItem('fii-dii-data', JSON.stringify(editData));
     const processed = processData(editData);
@@ -260,7 +264,7 @@ const FIIDIITracker = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fii-dii-data-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `fii-dii-data-${data.date.replace(/\//g, '-')}.json`;
     a.click();
     setMobileMenuOpen(false);
   };
@@ -275,7 +279,7 @@ const FIIDIITracker = () => {
         const rawData = JSON.parse(e.target.result);
         
         if (!rawData.date || !rawData.categories) {
-          setError('Invalid JSON format. Please check your file.');
+          setError('Invalid JSON format. Must include "date" and "categories" fields.');
           return;
         }
 
@@ -348,6 +352,7 @@ const FIIDIITracker = () => {
                 <button
                   onClick={triggerFileUpload}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-3 rounded-lg transition-colors"
+                  title="Upload JSON file"
                 >
                   <Upload className="w-5 h-5" />
                   Upload
@@ -355,6 +360,7 @@ const FIIDIITracker = () => {
                 <button
                   onClick={downloadJSON}
                   className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg transition-colors"
+                  title="Download current data as JSON"
                 >
                   <Download className="w-5 h-5" />
                   Download
@@ -440,15 +446,21 @@ const FIIDIITracker = () => {
               <div className="bg-gray-800 rounded-lg p-4 md:p-6 max-w-4xl w-full max-h-[95vh] overflow-y-auto">
                 <h2 className="text-xl md:text-2xl font-bold mb-4">Edit Daily Data</h2>
                 
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold mb-2">Date (DD/MM/YYYY)</label>
+                <div className="mb-4 bg-blue-900/30 border border-blue-600 rounded-lg p-4">
+                  <label className="block text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Date (DD/MM/YYYY)
+                  </label>
                   <input
                     type="text"
                     value={editData.date}
-                    onChange={(e) => setEditData({ ...editData, date: e.target.value })}
-                    className="w-full bg-gray-700 px-3 py-2 rounded text-sm md:text-base"
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="w-full bg-gray-700 px-3 py-3 rounded text-sm md:text-base font-semibold"
                     placeholder="08/01/2026"
                   />
+                  <p className="text-xs text-gray-400 mt-2">
+                    This date will be shown in the header and used in the downloaded filename
+                  </p>
                 </div>
 
                 {editData.categories.map((category, catIndex) => (
@@ -456,7 +468,7 @@ const FIIDIITracker = () => {
                     <h3 className="text-lg md:text-xl font-bold mb-3">
                       {category.name}
                       <span className="text-xs md:text-sm font-normal text-gray-400 ml-2">
-                        ({WEIGHTAGE[category.name]}x)
+                        (Weightage: {WEIGHTAGE[category.name]}x)
                       </span>
                     </h3>
                     <div className="space-y-2">
@@ -642,10 +654,20 @@ const FIIDIITracker = () => {
             
             <h3 className="text-base md:text-lg font-semibold mb-2 mt-4">How to Update:</h3>
             <ol className="space-y-1 text-gray-300 list-decimal list-inside text-sm md:text-base">
-              <li><strong className="text-green-400">Upload JSON:</strong> Click menu → Upload JSON</li>
-              <li><strong className="text-purple-400">Edit Manually:</strong> Click menu → Edit Data</li>
-              <li><strong className="text-yellow-400">Download:</strong> Save current data as backup</li>
+              <li><strong className="text-green-400">Upload JSON:</strong> Include "date" field in DD/MM/YYYY format</li>
+              <li><strong className="text-purple-400">Edit Manually:</strong> Update date and values directly</li>
+              <li><strong className="text-yellow-400">Download:</strong> Saves with date in filename</li>
             </ol>
+            
+            <div className="mt-4 bg-gray-700/50 p-3 rounded text-sm">
+              <p className="text-gray-300 mb-2"><strong>JSON Format Example:</strong></p>
+              <pre className="text-xs text-green-400 overflow-x-auto">
+{`{
+  "date": "08/01/2026",
+  "categories": [ ... ]
+}`}
+              </pre>
+            </div>
           </div>
         </div>
       </div>
